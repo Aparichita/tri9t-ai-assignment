@@ -1,4 +1,4 @@
-"""Gemini QA generation with structured-output validation and retries."""
+"""LLM QA generation with structured-output validation and retries (Groq provider)."""
 
 from __future__ import annotations
 
@@ -103,49 +103,56 @@ def validate_test_cases(payload: dict) -> list[dict]:
     return cleaned
 
 
+def _is_retryable(exc: Exception) -> bool:
+    try:
+        from groq import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
+
+        if isinstance(exc, (RateLimitError, APITimeoutError, APIConnectionError)):
+            return True
+        if isinstance(exc, APIStatusError) and exc.status_code in {408, 429, 500, 502, 503, 504}:
+            return True
+    except ImportError:
+        pass
+    return False
+
+
 def generate_qa_test_cases(sections: list[dict[str, Any]]) -> list[dict]:
-    if not settings.gemini_api_key or settings.gemini_api_key.startswith("your_"):
+    if not settings.groq_api_key or settings.groq_api_key.startswith("your_"):
         raise RuntimeError(
-            "GEMINI_API_KEY is not configured. Copy .env.example to .env and set your key."
+            "GROQ_API_KEY is not configured. Copy .env.example to .env and set your key."
         )
 
-    import google.generativeai as genai
+    from groq import Groq
 
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel(settings.gemini_model)
+    client = Groq(api_key=settings.groq_api_key, timeout=settings.groq_timeout_seconds)
     prompt = PROMPT_TEMPLATE.format(sections_block=_sections_block(sections))
 
     last_error: Exception | None = None
-    attempts = settings.gemini_max_retries + 1
+    attempts = settings.groq_max_retries + 1
     for attempt in range(1, attempts + 1):
         try:
-            response = model.generate_content(
-                prompt,
-                generation_config={
-                    "temperature": 0.2,
-                    "response_mime_type": "application/json",
-                },
+            response = client.chat.completions.create(
+                model=settings.groq_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                response_format={"type": "json_object"},
             )
-            text = getattr(response, "text", None) or ""
-            if not text and getattr(response, "candidates", None):
-                # Fallback if .text is empty due to finish reasons
-                parts = []
-                for cand in response.candidates:
-                    content = getattr(cand, "content", None)
-                    if content and getattr(content, "parts", None):
-                        for part in content.parts:
-                            if hasattr(part, "text"):
-                                parts.append(part.text)
-                text = "\n".join(parts)
+            choice = response.choices[0] if response.choices else None
+            text = (choice.message.content if choice and choice.message else None) or ""
             if not text.strip():
-                raise ValueError("Empty response from Gemini")
+                raise ValueError("Empty response from LLM")
             parsed = _extract_json(text)
             return validate_test_cases(parsed)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
-            if attempt < attempts:
+            if attempt < attempts and _is_retryable(exc):
                 time.sleep(0.8 * attempt)
                 continue
+            if attempt < attempts and not _is_retryable(exc):
+                # Validation / parse errors may succeed on retry with a fresh completion
+                if isinstance(exc, (ValueError, json.JSONDecodeError)):
+                    time.sleep(0.8 * attempt)
+                    continue
             break
 
-    raise RuntimeError(f"Gemini generation failed after {attempts} attempts: {last_error}")
+    raise RuntimeError(f"LLM generation failed after {attempts} attempts: {last_error}")

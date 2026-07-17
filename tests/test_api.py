@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 # Use an isolated in-memory DB for tests
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["GENERATIONS_DIR"] = str(Path("data/generations_test").resolve())
-os.environ["GEMINI_API_KEY"] = ""
+os.environ["GROQ_API_KEY"] = ""
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402

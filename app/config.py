@@ -12,11 +12,25 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.1-8b-instant"
+    groq_max_retries: int = 2
+    groq_timeout_seconds: float = 60.0
     database_url: str = f"sqlite:///{BASE_DIR / 'data' / 'app.db'}"
     generations_dir: str = str(BASE_DIR / "data" / "generations")
-    gemini_max_retries: int = 2
+
+    # Backward-compatible aliases used by document_service.py (unchanged)
+    @property
+    def gemini_api_key(self) -> str:
+        return self.groq_api_key
+
+    @property
+    def gemini_model(self) -> str:
+        return self.groq_model
+
+    @property
+    def gemini_max_retries(self) -> int:
+        return self.groq_max_retries
 
 
 settings = Settings()

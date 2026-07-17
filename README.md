@@ -1,6 +1,6 @@
 # CardioTrack Document Intelligence API
 
-Backend MVP for **AffineSurge (Tri9T AI)** internship assignment: ingest medical-device PDFs into a versioned document tree, select sections, generate QA test cases with Gemini, and detect when those outputs go stale after document changes.
+Backend MVP for **AffineSurge (Tri9T AI)** internship assignment: ingest medical-device PDFs into a versioned document tree, select sections, generate QA test cases with Groq (Llama), and detect when those outputs go stale after document changes.
 
 ## Features
 
@@ -8,7 +8,7 @@ Backend MVP for **AffineSurge (Tri9T AI)** internship assignment: ingest medical
 - SQLite + SQLAlchemy persistence (versions are immutable)
 - Version compare via content hashes (`ct200_manual.pdf` vs `ct200_manual_v2.pdf`)
 - Version-pinned section selections
-- Gemini QA generation (3–5 structured test cases) with validation + retry
+- Groq LLM QA generation (3–5 structured test cases) with validation + retry
 - Generated outputs stored as JSON files (with SQLite metadata)
 - Staleness detection after later document versions change selected text
 
@@ -68,8 +68,10 @@ Edit `.env`:
 
 | Variable | Required | Description |
 |---|---|---|
-| `GEMINI_API_KEY` | Yes (for generation) | API key from [Google AI Studio](https://aistudio.google.com/apikey) |
-| `GEMINI_MODEL` | No | Default `gemini-2.0-flash` |
+| `GROQ_API_KEY` | Yes (for generation) | API key from [Groq Console](https://console.groq.com/keys) |
+| `GROQ_MODEL` | No | Default `llama-3.1-8b-instant` (free tier) |
+| `GROQ_MAX_RETRIES` | No | Default `2` |
+| `GROQ_TIMEOUT_SECONDS` | No | Default `60` |
 | `DATABASE_URL` | No | Default `sqlite:///./data/app.db` |
 | `GENERATIONS_DIR` | No | Default `./data/generations` |
 
@@ -133,7 +135,7 @@ POST /selections
 }
 ```
 
-6. **Generate QA test cases (Gemini)**
+6. **Generate QA test cases (Groq)**
 
 ```http
 POST /generations
@@ -163,7 +165,7 @@ If selected section text changed in v2, the generation is marked **stale**.
 | GET | `/versions/compare` | Diff two versions by section + hash |
 | POST | `/selections` | Create version-pinned selection |
 | GET | `/selections/{id}` | Retrieve selection |
-| POST | `/generations` | Call Gemini, store QA JSON |
+| POST | `/generations` | Call Groq LLM, store QA JSON |
 | GET | `/generations/{id}` | Retrieve QA + stale/current status |
 | GET | `/generations/{id}/staleness` | Explicit staleness check |
 | GET | `/health` | Liveness |
@@ -182,7 +184,7 @@ Parser tests cover:
 - ligature normalization and table flattening
 - real hash diffs between the two assignment PDFs
 
-API tests cover ingest, immutability, search, compare, and version-pinned selections **without** calling Gemini.
+API tests cover ingest, immutability, search, compare, and version-pinned selections **without** calling the LLM.
 
 ## Postman
 
@@ -216,7 +218,7 @@ When you are ready to commit milestones (do not fake dates):
 3. `feat: add SQLAlchemy models and ingest API`
 4. `feat: implement search and version compare`
 5. `feat: implement version-pinned selection API`
-6. `feat: integrate Gemini QA generation with validation`
+6. `feat: integrate Groq LLM QA generation with validation`
 7. `feat: implement staleness detection and retrieval`
 8. `test: add parser and API unit tests`
 9. `docs: add README, approach document, and Postman collection`
