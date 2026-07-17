@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+data/app.db
+data/generations/
+*.db
+pdf_v1_preview.txt
+pdf_v2_preview.txt
+.DS_Store
