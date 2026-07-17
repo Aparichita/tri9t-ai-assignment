@@ -1,0 +1,274 @@
+{
+  "info": {
+    "name": "CardioTrack Document Intelligence API",
+    "description": "Complete collection for AffineSurge internship MVP: ingest, sections, search, compare, selections, Gemini generation, retrieval, staleness.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+    { "key": "documentId", "value": "1" },
+    { "key": "versionAId", "value": "1" },
+    { "key": "versionBId", "value": "2" },
+    { "key": "nodeId", "value": "1" },
+    { "key": "selectionId", "value": "1" },
+    { "key": "generationId", "value": "1" },
+    { "key": "nodeIdA", "value": "1" },
+    { "key": "nodeIdB", "value": "2" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingest & Documents",
+      "item": [
+        {
+          "name": "Ingest v1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('documentId', data.document.id);",
+                  "  pm.collectionVariables.set('versionAId', data.version.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_path\": \"data/ct200_manual.pdf\",\n  \"document_key\": \"ct200_manual\",\n  \"version_label\": \"v1\"\n}"
+            },
+            "url": "{{baseUrl}}/documents/ingest"
+          }
+        },
+        {
+          "name": "Ingest v2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('versionBId', data.version.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_path\": \"data/ct200_manual_v2.pdf\",\n  \"document_key\": \"ct200_manual\",\n  \"version_label\": \"v2\"\n}"
+            },
+            "url": "{{baseUrl}}/documents/ingest"
+          }
+        },
+        {
+          "name": "List documents",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/documents"
+          }
+        },
+        {
+          "name": "List versions for document",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/documents/{{documentId}}/versions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sections & Search",
+      "item": [
+        {
+          "name": "List sections (v1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const nodes = pm.response.json();",
+                  "  const a = nodes.find(n => n.section_number === '3.2');",
+                  "  const b = nodes.find(n => n.section_number === '4.1');",
+                  "  if (a) { pm.collectionVariables.set('nodeIdA', a.id); pm.collectionVariables.set('nodeId', a.id); }",
+                  "  if (b) { pm.collectionVariables.set('nodeIdB', b.id); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/versions/{{versionAId}}/sections"
+          }
+        },
+        {
+          "name": "Node details",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/nodes/{{nodeId}}"
+          }
+        },
+        {
+          "name": "Search overpressure",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/versions/{{versionAId}}/search?q=overpressure",
+              "host": ["{{baseUrl}}"],
+              "path": ["versions", "{{versionAId}}", "search"],
+              "query": [{ "key": "q", "value": "overpressure" }]
+            }
+          }
+        },
+        {
+          "name": "List sections (v2)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/versions/{{versionBId}}/sections"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compare Versions",
+      "item": [
+        {
+          "name": "Compare v1 vs v2",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/versions/compare?version_a_id={{versionAId}}&version_b_id={{versionBId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["versions", "compare"],
+              "query": [
+                { "key": "version_a_id", "value": "{{versionAId}}" },
+                { "key": "version_b_id", "value": "{{versionBId}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Selections",
+      "item": [
+        {
+          "name": "Create selection (version-pinned)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('selectionId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version_id\": {{versionAId}},\n  \"node_ids\": [{{nodeIdA}}, {{nodeIdB}}],\n  \"name\": \"inflation-and-safety\"\n}"
+            },
+            "url": "{{baseUrl}}/selections"
+          }
+        },
+        {
+          "name": "Get selection",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/selections/{{selectionId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generation & Staleness",
+      "item": [
+        {
+          "name": "Generate QA test cases (Gemini)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('generationId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"selection_id\": {{selectionId}}\n}"
+            },
+            "url": "{{baseUrl}}/generations",
+            "description": "Requires GEMINI_API_KEY in server .env"
+          }
+        },
+        {
+          "name": "Retrieve generation",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/generations/{{generationId}}"
+          }
+        },
+        {
+          "name": "Check staleness (auto latest)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/generations/{{generationId}}/staleness"
+          }
+        },
+        {
+          "name": "Check staleness against v2",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/generations/{{generationId}}/staleness?against_version_id={{versionBId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["generations", "{{generationId}}", "staleness"],
+              "query": [{ "key": "against_version_id", "value": "{{versionBId}}" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
